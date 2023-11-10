@@ -37,7 +37,7 @@ def parse_args():
 class Predictor(object):
     def __init__(self, cfg, model_path, logger, device="cuda:0"):
         self.cfg = cfg
-        self.device = device
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         model = build_model(cfg.model)
         ckpt = torch.load(model_path, map_location=lambda storage, loc: storage)
         load_model_weight(model, ckpt, logger)
@@ -48,7 +48,7 @@ class Predictor(object):
             from nanodet.model.backbone.repvgg import repvgg_det_model_convert
 
             model = repvgg_det_model_convert(model, deploy_model)
-        self.model = model.to(device).eval()
+        self.model = model.to(self.device).eval()
         self.pipeline = Pipeline(cfg.data.val.pipeline, cfg.data.val.keep_ratio)
 
     def inference(self, img):
@@ -62,6 +62,7 @@ class Predictor(object):
         height, width = img.shape[:2]
         img_info["height"] = height
         img_info["width"] = width
+        
         meta = dict(img_info=img_info, raw_img=img, img=img)
         meta = self.pipeline(None, meta, self.cfg.data.val.input_size)
         meta["img"] = torch.from_numpy(meta["img"].transpose(2, 0, 1)).to(self.device)
